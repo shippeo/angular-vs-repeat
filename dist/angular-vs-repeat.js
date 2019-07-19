@@ -78,31 +78,27 @@ function _slicedToArray(arr, i) { if (Array.isArray(arr)) { return arr; } else i
    * - `vsRepeatTrigger` - an event the directive listens for to manually trigger reinitialization
    * - `vsRepeatReinitialized` - an event the directive emits upon reinitialization done
    */
-  var closestElement = angular.element.prototype.closest;
+  var matchingFunction = ['matches', 'matchesSelector', 'webkitMatches', 'webkitMatchesSelector', 'msMatches', 'msMatchesSelector', 'mozMatches', 'mozMatchesSelector'].reduce(function (res, prop) {
+    var _res;
 
-  if (!closestElement) {
-    var matchingFunction = ['matches', 'matchesSelector', 'webkitMatches', 'webkitMatchesSelector', 'msMatches', 'msMatchesSelector', 'mozMatches', 'mozMatchesSelector'].reduce(function (res, prop) {
-      var _res;
+    return (_res = res) !== null && _res !== void 0 ? _res : prop in document.documentElement ? prop : null;
+  }, null);
 
-      return (_res = res) !== null && _res !== void 0 ? _res : prop in document.documentElement ? prop : null;
-    }, null);
+  var closestElement = function closestElement(selector) {
+    var _el;
 
-    closestElement = function closestElement(selector) {
-      var _el;
+    var el = this[0].parentNode;
 
-      var el = this[0].parentNode;
+    while (el !== document.documentElement && el != null && !el[matchingFunction](selector)) {
+      el = el.parentNode;
+    }
 
-      while (el !== document.documentElement && el != null && !el[matchingFunction](selector)) {
-        el = el.parentNode;
-      }
+    if ((_el = el) === null || _el === void 0 ? void 0 : _el[matchingFunction](selector)) {
+      return angular.element(el);
+    }
 
-      if ((_el = el) === null || _el === void 0 ? void 0 : _el[matchingFunction](selector)) {
-        return angular.element(el);
-      }
-
-      return angular.element();
-    };
-  }
+    return angular.element();
+  };
 
   function getWindowScroll() {
     var _ref, _document$documentEle, _ref2, _document$documentEle2;

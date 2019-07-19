@@ -79,34 +79,29 @@
    * - `vsRepeatTrigger` - an event the directive listens for to manually trigger reinitialization
    * - `vsRepeatReinitialized` - an event the directive emits upon reinitialization done
    */
+  const matchingFunction = [
+    'matches',
+    'matchesSelector',
+    'webkitMatches',
+    'webkitMatchesSelector',
+    'msMatches',
+    'msMatchesSelector',
+    'mozMatches',
+    'mozMatchesSelector',
+  ].reduce((res, prop) => res ?? (prop in document.documentElement ? prop : null), null);
 
-  let closestElement = angular.element.prototype.closest;
+  let closestElement = function (selector) {
+    let el = this[0].parentNode;
+    while (el !== document.documentElement && el != null && !el[matchingFunction](selector)) {
+      el = el.parentNode;
+    }
 
-  if (!closestElement) {
-    const matchingFunction = [
-      'matches',
-      'matchesSelector',
-      'webkitMatches',
-      'webkitMatchesSelector',
-      'msMatches',
-      'msMatchesSelector',
-      'mozMatches',
-      'mozMatchesSelector',
-    ].reduce((res, prop) => res ?? (prop in document.documentElement ? prop : null), null);
+    if (el ?.[matchingFunction](selector)) {
+      return angular.element(el);
+    }
 
-    closestElement = function(selector) {
-      let el = this[0].parentNode;
-      while (el !== document.documentElement && el != null && !el[matchingFunction](selector)) {
-        el = el.parentNode;
-      }
-
-      if (el?.[matchingFunction](selector)) {
-        return angular.element(el);
-      }
-
-      return angular.element();
-    };
-  }
+    return angular.element();
+  };
 
   function getWindowScroll() {
     if ('pageYOffset' in window) {
@@ -185,7 +180,7 @@
     hunkSize: 0,
   };
 
-  const vsRepeatModule = angular.module('vs-repeat', []).directive('vsRepeat', ['$compile', '$parse', function($compile, $parse) {
+  const vsRepeatModule = angular.module('vs-repeat', []).directive('vsRepeat', ['$compile', '$parse', function ($compile, $parse) {
     return {
       restrict: 'A',
       scope: true,
@@ -230,7 +225,7 @@
 
         compileRepeatContainer.empty();
         return {
-          pre: function($scope, $element, $attrs) {
+          pre: function ($scope, $element, $attrs) {
             function _parseSize(options) {
               if (typeof options.size === 'number') {
                 options.getSize = () => options.size;
@@ -458,7 +453,7 @@
               _minStartIndex,
               _maxEndIndex;
 
-            $scope.$on('vsRenderAll', function() {
+            $scope.$on('vsRenderAll', function () {
               if (!options.latch) {
                 return;
               }
@@ -604,10 +599,10 @@
               if (!digestRequired) {
                 if (options.hunked) {
                   if (Math.abs($scope.vsRepeat.startIndex - _prevStartIndex) >= options.hunkSize ||
-                                        ($scope.vsRepeat.startIndex === 0 && _prevStartIndex !== 0)) {
+                    ($scope.vsRepeat.startIndex === 0 && _prevStartIndex !== 0)) {
                     digestRequired = true;
                   } else if (Math.abs($scope.vsRepeat.endIndex - _prevEndIndex) >= options.hunkSize ||
-                                        ($scope.vsRepeat.endIndex === originalLength && _prevEndIndex !== originalLength)) {
+                    ($scope.vsRepeat.endIndex === originalLength && _prevEndIndex !== originalLength)) {
                     digestRequired = true;
                   }
                 } else {
