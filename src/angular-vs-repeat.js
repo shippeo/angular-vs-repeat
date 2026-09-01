@@ -96,7 +96,7 @@
       el = el.parentNode;
     }
 
-    if (el ?.[matchingFunction](selector)) {
+    if (el?.[matchingFunction](selector)) {
       return angular.element(el);
     }
 
