@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>angular-vs-repeat — suite de tests</title>
+  </head>
+  <body>
+    <!--
+      Les scripts sont charges comme SCRIPTS CLASSIQUES, dans l'ordre exact de
+      l'ancien karma.conf.js. Cet ordre n'est pas negociable :
+        - angular doit exister avant que le bundle appelle angular.module() ;
+        - angular-mocks doit venir apres angular pour l'etendre ;
+        - spec.js suppose que tout le reste est deja en place.
+
+      Pas de type="module" pour ceux-la : test/spec.js est une IIFE qui repose
+      sur des globals (angular, inject, describe, it, expect), pas sur des
+      imports. C'est aussi la raison de ce fichier HTML explicite plutot que de
+      la decouverte automatique de fichiers, concue pour de l'ESM.
+
+      Ne pas retirer <head> ni <body> : le runner y injecte __WTR_CONFIG__.
+    -->
+    <script src="../node_modules/chai/chai.js"></script>
+    <script>
+      // chai expose le global `chai` ; les tests attendent `expect`
+      // directement, comme le faisait karma-chai.
+      window.expect = window.chai.expect;
+    </script>
+    <script src="../lib/angular.js"></script>
+    <script src="../dist/angular-vs-repeat.min.js"></script>
+
+    <script type="module">
+      // standalone.js est la voie « HTML test file » : contrairement a
+      // autorun.js (voie JS), il n'importe jamais config.testFile — il execute
+      // la callback qu'on lui donne. Utiliser autorun.js ici provoquerait un
+      // import parasite de index.html en tant que module.
+      import { runTests } from '../node_modules/@web/test-runner-mocha/dist/standalone.js';
+
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error(`Failed to load ${src}`));
+          document.body.appendChild(script);
+        });
+      }
+
+      // angular-mocks ET spec.js sont charges ICI, pas par un <script> du
+      // document, pour deux raisons distinctes :
+      //
+      //  - angular-mocks (l. 1951) est garde par `if (window.jasmine ||
+      //    window.mocha)` : il ne publie window.module / window.inject et
+      //    angular.mock.module que si un framework de test est deja present.
+      //    Karma chargeait mocha en premier ; ici standalone.js est un module
+      //    ESM, donc differe jusqu'apres tous les scripts classiques. Charge
+      //    dans le document, angular-mocks s'executerait trop tot et
+      //    `angular.mock.module is not a function` au premier beforeEach.
+      //
+      //  - spec.js appelle describe()/it() des son chargement, ce qui exige
+      //    que mocha.setup() ait deja tourne — c'est ce que fait runTests()
+      //    avant d'executer cette callback.
+      //
+      // L'ordre relatif angular -> angular-mocks -> spec.js reste celui de
+      // karma.conf.js.
+      runTests(async () => {
+        await loadScript('../lib/angular-mocks.js');
+        await loadScript('./spec.js');
+        await loadScript('./contract.spec.js');
+      });
+    </script>
+  </body>
+</html>
