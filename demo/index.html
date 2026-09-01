@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>angular-vs-repeat — avant / après ResizeObserver</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1a1a18; --muted: #6b6b66;
+    --line: #e3e3df; --card: #fff;
+    --before: #b4532a; --after: #2d6a4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+
+  .controls {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 14px 16px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px; margin-bottom: 20px;
+  }
+  button {
+    font: inherit; font-weight: 500; padding: 7px 14px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--fg); color: #fff; cursor: pointer;
+  }
+  button.ghost { background: #fff; color: var(--fg); }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden;
+  }
+  .panel > header {
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .panel h2 { font-size: 15px; margin: 0; font-weight: 600; }
+  .tag { font-size: 12px; padding: 2px 8px; border-radius: 99px; color: #fff; }
+  .before .tag { background: var(--before); }
+  .after  .tag { background: var(--after); }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+  .metric { background: var(--card); padding: 12px 16px; }
+  .metric .k { font-size: 12px; color: var(--muted); }
+  .metric .v { font-size: 26px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .before .v.hl { color: var(--before); }
+  .after  .v.hl { color: var(--after); }
+
+  /* Mise en page reproduisant celle du consommateur reel : parent a hauteur
+     fixe, conteneur de scroll etire par le flex. La directive est posee sur
+     .scroller lui-meme — c'est l'element qui defile, et sans option
+     scrollParent la directive ecoute son propre element. */
+  .stage { height: 260px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .scroller { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  .row {
+    height: 28px; padding: 0 16px; display: flex; align-items: center;
+    border-bottom: 1px solid #f0f0ec; font-variant-numeric: tabular-nums;
+  }
+  .row:nth-child(even) { background: #fcfcfb; }
+
+  .verdict {
+    margin-top: 20px; padding: 14px 16px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .verdict strong { font-variant-numeric: tabular-nums; }
+  code { background: #f2f2ee; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Détection de redimensionnement : polling rAF contre ResizeObserver</h1>
+<p class="sub">
+  Les deux panneaux affichent la même liste de 500 éléments avec la même
+  configuration. Seule la version de la directive diffère.
+</p>
+
+<div class="controls">
+  <button id="run">Mesurer 5 secondes au repos</button>
+  <button id="resize" class="ghost">Redimensionner les conteneurs</button>
+  <span class="hint">
+    Au repos, aucune interaction : les frames demandées sont du travail pur perte.
+  </span>
+</div>
+
+<div class="grid">
+  <section class="panel before">
+    <header>
+      <h2>Avant</h2><span class="tag">v2.0.13 — production</span>
+    </header>
+    <div class="metrics">
+      <div class="metric"><div class="k">Frames demandées / digest</div><div class="v hl" id="rafBefore">—</div></div>
+      <div class="metric"><div class="k">Lignes dans le DOM</div><div class="v" id="domBefore">—</div></div>
+    </div>
+    <div class="stage"><div class="scroller" id="hostBefore"></div></div>
+  </section>
+
+  <section class="panel after">
+    <header>
+      <h2>Après</h2><span class="tag">ResizeObserver</span>
+    </header>
+    <div class="metrics">
+      <div class="metric"><div class="k">Frames demandées / digest</div><div class="v hl" id="rafAfter">—</div></div>
+      <div class="metric"><div class="k">Lignes dans le DOM</div><div class="v" id="domAfter">—</div></div>
+    </div>
+    <div class="stage"><div class="scroller" id="hostAfter"></div></div>
+  </section>
+</div>
+
+<div class="verdict" id="verdict">
+  <span class="hint">
+    Lance la mesure. Le nombre de lignes dans le DOM doit rester identique des
+    deux côtés — c'est la preuve que le virtual scroll fonctionne pareil.
+  </span>
+</div>
+
+<script src="../node_modules/angular/angular.js"></script>
+<script>
+// Compteur de frames, installe AVANT le chargement des directives pour
+// intercepter tous les appels qu'elles planifient.
+//
+// Les deux versions cohabitent dans la meme page : un compteur unique
+// melangerait leurs appels. On attribue donc chaque frame a l'application
+// dont le digest tourne au moment de l'appel (cf. `measure`).
+// On ne compte que les frames demandees PAR LA DIRECTIVE : la pile d'appel
+// doit mentionner son bundle. Sans ce filtre, on mesurerait aussi celles du
+// navigateur et des outils d'automatisation, qui noient completement le signal.
+window.__counts = { before: 0, after: 0 };
+window.__attribution = null;
+const rawRAF = window.requestAnimationFrame;
+window.requestAnimationFrame = function (cb) {
+  if (window.__attribution) {
+    const stack = (new Error()).stack || '';
+    if (stack.indexOf('vs-repeat') !== -1) window.__counts[window.__attribution]++;
+  }
+  return rawRAF.call(window, cb);
+};
+</script>
+
+<script>
+// Les deux versions declarent le meme nom de module Angular ('vs-repeat').
+// On charge donc la premiere, on capture son module, puis on charge la
+// seconde qui ecrase l'enregistrement — chaque application recoit ainsi la
+// version voulue.
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error(src));
+    document.body.appendChild(s);
+  });
+}
+
+function rows(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ value: i });
+  return out;
+}
+
+// La directive va sur l'element qui DEFILE (celui qui porte overflow:auto),
+// pas sur un enfant : sans option scrollParent, vs-repeat ecoute son propre
+// element pour detecter le scroll.
+const TEMPLATE =
+  '<div ng-repeat="item in items" class="row">Ligne {{ item.value }}</div>';
+
+const apps = {};
+
+function boot(hostId, key) {
+  const injector = angular.injector(['ng', 'vs-repeat']);
+  injector.invoke(function ($compile, $rootScope) {
+    const scope = $rootScope.$new();
+    // On compile le .scroller lui-meme : c'est lui qui defile, et la directive
+    // doit etre posee dessus pour recevoir l'evenement scroll.
+    const host = document.getElementById(hostId);
+    host.setAttribute('vs-repeat', '{size: 28}');
+    host.innerHTML = TEMPLATE;
+    $compile(host)(scope);
+    scope.items = rows(500);
+    scope.$digest();
+    apps[key] = { scope, rootScope: $rootScope, el: host };
+  });
+}
+
+(async function () {
+  // Version d'origine
+  await loadScript('./vs-repeat-before.js');
+  boot('hostBefore', 'before');
+
+  // La seconde redefinit le module : les injecteurs crees ensuite l'utilisent.
+  await loadScript('./vs-repeat-after.js');
+  boot('hostAfter', 'after');
+
+  document.getElementById('run').disabled = false;
+})();
+
+function countRows(key) {
+  return apps[key] ? apps[key].el.querySelectorAll('.row').length : 0;
+}
+
+document.getElementById('run').addEventListener('click', async function () {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Mesure en cours…';
+
+  // Le compteur global ne suffit pas : les deux applications vivent dans la
+  // meme page et alimenteraient le meme total. On attribue donc chaque frame
+  // a l'application dont le digest est en cours.
+  const measure = async (key) => {
+    const app = apps[key];
+    window.__attribution = key;
+    window.__counts[key] = 0;
+    // Des digests reguliers, comme dans une application vivante — mais rien
+    // ne change pour la directive.
+    let digests = 0;
+    const iv = setInterval(() => { digests++; app.rootScope.$digest(); }, 50);
+    await new Promise((r) => setTimeout(r, 5000));
+    clearInterval(iv);
+    window.__attribution = null;
+    return +(window.__counts[key] / digests).toFixed(2);
+  };
+
+  const before = await measure('before');
+  const after = await measure('after');
+
+  document.getElementById('rafBefore').textContent = before;
+  document.getElementById('rafAfter').textContent = after;
+  document.getElementById('domBefore').textContent = countRows('before');
+  document.getElementById('domAfter').textContent = countRows('after');
+
+  const sameRender = countRows('before') === countRows('after');
+  const drop = before > 0 ? Math.round((1 - after / before) * 100) : 0;
+
+  document.getElementById('verdict').innerHTML =
+    '<strong>' + before + '</strong> frame(s) demandée(s) par digest avant, ' +
+    '<strong>' + after + '</strong> après — soit <strong>' + drop + ' %</strong> de moins, ' +
+    'sur une page où rien ne bouge.<br>' +
+    'Lignes rendues dans le DOM : <strong>' + countRows('before') + '</strong> contre ' +
+    '<strong>' + countRows('after') + '</strong> — ' +
+    (sameRender
+      ? 'identiques, le rendu est inchangé.'
+      : '<span style="color:var(--before)">différentes, à investiguer.</span>');
+
+  btn.disabled = false;
+  btn.textContent = 'Relancer la mesure';
+});
+
+// Redimensionner : les deux versions doivent recalculer et rester synchrones.
+document.getElementById('resize').addEventListener('click', function () {
+  document.querySelectorAll('.stage').forEach((s) => {
+    s.style.height = s.style.height === '160px' ? '260px' : '160px';
+  });
+  setTimeout(() => {
+    document.getElementById('domBefore').textContent = countRows('before');
+    document.getElementById('domAfter').textContent = countRows('after');
+    document.getElementById('verdict').innerHTML =
+      'Après redimensionnement — lignes rendues : <strong>' + countRows('before') +
+      '</strong> avant, <strong>' + countRows('after') + '</strong> après. ' +
+      (countRows('before') === countRows('after')
+        ? 'Les deux versions ont recalculé de la même façon.'
+        : '<span style="color:var(--before)">Écart, à investiguer.</span>');
+  }, 300);
+});
+</script>
+</body>
+</html>

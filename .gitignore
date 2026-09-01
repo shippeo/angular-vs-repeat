@@ -4,3 +4,5 @@ test/draft.js
 .playwright-profile
 measures/*
 !measures/reference
+demo/vs-repeat-before.js
+demo/vs-repeat-after.js
