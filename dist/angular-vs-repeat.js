@@ -410,11 +410,128 @@
               }
               _prevClientSize = ch;
             }
-            $scope.$watch(() => {
-              if (typeof window.requestAnimationFrame === 'function') {
-                window.requestAnimationFrame(reinitOnClientHeightChange);
+
+            // Detects size changes of the scroll container itself: a panel
+            // opening, a column collapsing, an ng-show toggling. This is
+            // distinct from the window being resized, already covered by
+            // onWindowResize above.
+            //
+            // ResizeObserver cannot observe `window`: when scrollParent is
+            // 'window', getClientSize reads window.innerHeight, whose changes
+            // are exactly what onWindowResize already handles. So only the
+            // element case is observed here.
+            const scrollParentElement = $scrollParent[0] === window ? null : $scrollParent[0];
+
+            /**
+             * ResizeObserver is only usable when the container's visible size
+             * does NOT depend on its own content.
+             *
+             * Counter-example: a container using `max-height` with no height of
+             * its own grows along with its content until it reaches that
+             * maximum. Since reinitialize() resizes the spacers — that is, the
+             * content — the observer would keep re-notifying itself, and the
+             * browser would break the cycle with "ResizeObserver loop completed
+             * with undelivered notifications".
+             *
+             * Conversely, a container whose height is imposed from the outside
+             * (an explicit height, or stretched by a flex/grid parent) is
+             * already at its final size: growing its content only fills up its
+             * scrollHeight. Measured on a real consumer (height: 846px,
+             * flex: 1 1 auto inside a 900px grid): growing the content from 50
+             * to 3000px fires no notification at all, while an actual change of
+             * available space does fire one.
+             *
+             * The computed size tells the two apart: `auto` means "I follow my
+             * content", anything else means "my size is imposed on me".
+             */
+            /**
+             * ResizeObserver is only usable when the container's visible size
+             * does NOT depend on its own content.
+             *
+             * Counter-example: a container using `max-height` with no height of
+             * its own grows along with its content until it reaches that
+             * maximum. Since reinitialize() resizes the spacers — that is, the
+             * content — the observer would keep re-notifying itself, and the
+             * browser would break the cycle with "ResizeObserver loop completed
+             * with undelivered notifications".
+             *
+             * A container whose height is imposed from the outside has no such
+             * problem: it is already at its final size, and growing the content
+             * only fills up its scrollHeight.
+             *
+             * Returns null while the element is still detached from the
+             * document, where getComputedStyle yields empty strings that say
+             * nothing about the final layout.
+             */
+            function hasExternallyDrivenHeight(element) {
+              const computed = window.getComputedStyle(element);
+              const sizeProp = options.horizontal ? 'width' : 'height';
+              const value = computed[sizeProp];
+
+              // Detached from the document, or not laid out yet (display:none,
+              // e.g. behind an ng-show): the computed size says nothing about
+              // how the element will be sized once visible. Defer the decision.
+              if (!value || computed.display === 'none') {
+                return null;
+              }
+
+              // A container capped by max-height is the dangerous case: below
+              // the cap its size follows its content, so resizing the spacers
+              // resizes the container, which re-notifies the observer.
+              //
+              // Note the computed height cannot be trusted to tell this apart:
+              // once the content exceeds the cap, it reads as a fixed pixel
+              // value (e.g. "200px") and looks externally driven. Only the
+              // presence of max-height reveals the dependency.
+              if (computed.maxHeight !== 'none') {
+                return false;
+              }
+              return value !== 'auto';
+            }
+            function startPollingFallback() {
+              $scope.$watch(() => {
+                if (typeof window.requestAnimationFrame === 'function') {
+                  window.requestAnimationFrame(reinitOnClientHeightChange);
+                } else {
+                  reinitOnClientHeightChange();
+                }
+              });
+            }
+
+            // The choice between the two mechanisms cannot be made here: link()
+            // runs BEFORE the element is inserted into the document, where the
+            // computed size is not yet meaningful. It is deferred to the first
+            // digest at which the layout can be read.
+            let sizeObserver = null;
+            const deregSetup = $scope.$watch(() => {
+              const externallyDriven = scrollParentElement ? hasExternallyDrivenHeight(scrollParentElement) : false;
+
+              // Still detached — retry on the next digest.
+              if (externallyDriven === null) {
+                return;
+              }
+              deregSetup();
+              if (externallyDriven && typeof window.ResizeObserver === 'function') {
+                // No debouncing needed: the guard above guarantees the size is
+                // content-independent, so reinitialize() cannot feed the
+                // observer back. Deferring through requestAnimationFrame would
+                // be counter-productive anyway — the CSSWG advises against it
+                // (notifications are delivered after rAF, causing flicker) and
+                // it delays the recalculation by a frame.
+                sizeObserver = new window.ResizeObserver(() => reinitOnClientHeightChange());
+                sizeObserver.observe(scrollParentElement);
               } else {
-                reinitOnClientHeightChange();
+                // Historical mechanism, kept for: scrollParent === window (not
+                // observable, and already covered by onWindowResize),
+                // content-driven containers where the observer would loop, and
+                // environments without ResizeObserver.
+                startPollingFallback();
+              }
+              reinitOnClientHeightChange();
+            });
+            $scope.$on('$destroy', () => {
+              if (sizeObserver) {
+                sizeObserver.disconnect();
               }
             });
             function binaryFind(array, threshold, a = 0, b = array.length - 1, d = 1) {
