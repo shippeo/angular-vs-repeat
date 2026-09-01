@@ -14,7 +14,7 @@ import { chromium } from 'playwright';
 import { join } from 'node:path';
 
 const URL = process.argv[2] || 'https://localhost:4400/legacy#!/app/tours/orders/filter/allTours';
-const PROFILE = join(process.cwd(), '.playwright-profile');
+const PROFILE = process.env.PW_PROFILE || join(process.cwd(), '.playwright-profile');
 const SHADOW_HOST = 'front-hybrid-legacy-wrapper';
 const MEASURE_MS = 5000;
 
@@ -28,10 +28,15 @@ const page = context.pages()[0] || (await context.newPage());
 
 // L'instrumentation doit etre en place AVANT que la page charge la directive.
 await page.addInitScript(() => {
+  // Only frames requested BY THE DIRECTIVE are counted: its bundle must appear
+  // in the call stack. Counting every rAF on the page would also pick up the
+  // browser's own and the automation tooling's, which drowns the signal
+  // entirely (measured: ~60/s of pure noise).
   window.__rafCount = 0;
   const raw = window.requestAnimationFrame;
   window.requestAnimationFrame = function (cb) {
-    window.__rafCount += 1;
+    const stack = (new Error()).stack || '';
+    if (stack.indexOf('vs-repeat') !== -1) window.__rafCount += 1;
     return raw.call(window, cb);
   };
 });
