@@ -1,3 +1,18 @@
+Version 3.1.0 (2026/09/01)
+=================
+
+  * `ResizeObserver` replaces the per-digest `requestAnimationFrame` polling
+    used to detect container size changes. Measured in situ on a real consumer:
+    62.3 frames per second requested at rest, down to zero.
+
+    The observer is only used where it is safe — a container capped by
+    `max-height` (or `max-width` when horizontal) still follows its content, and
+    would make the observer re-notify itself. Those keep the historical polling,
+    as do `scrollParent: 'window'` and environments without `ResizeObserver`.
+
+    No public API change: same options, same export contract, rendering verified
+    identical on a production view across five scroll positions.
+
 Version 3.0.0 (2026/09/01)
 =================
 
