@@ -55,8 +55,10 @@
   .before .v.hl { color: var(--before); }
   .after  .v.hl { color: var(--after); }
 
-  /* Mise en page reproduisant celle du consommateur reel :
-     parent a hauteur fixe, conteneur de scroll etire par le flex. */
+  /* Mise en page reproduisant celle du consommateur reel : parent a hauteur
+     fixe, conteneur de scroll etire par le flex. La directive est posee sur
+     .scroller lui-meme — c'est l'element qui defile, et sans option
+     scrollParent la directive ecoute son propre element. */
   .stage { height: 260px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
   .scroller { flex: 1 1 auto; min-height: 0; overflow: auto; }
   .row {
@@ -95,7 +97,7 @@
       <h2>Avant</h2><span class="tag">v2.0.13 — production</span>
     </header>
     <div class="metrics">
-      <div class="metric"><div class="k">Frames / seconde au repos</div><div class="v hl" id="rafBefore">—</div></div>
+      <div class="metric"><div class="k">Frames demandées / digest</div><div class="v hl" id="rafBefore">—</div></div>
       <div class="metric"><div class="k">Lignes dans le DOM</div><div class="v" id="domBefore">—</div></div>
     </div>
     <div class="stage"><div class="scroller" id="hostBefore"></div></div>
@@ -106,7 +108,7 @@
       <h2>Après</h2><span class="tag">ResizeObserver</span>
     </header>
     <div class="metrics">
-      <div class="metric"><div class="k">Frames / seconde au repos</div><div class="v hl" id="rafAfter">—</div></div>
+      <div class="metric"><div class="k">Frames demandées / digest</div><div class="v hl" id="rafAfter">—</div></div>
       <div class="metric"><div class="k">Lignes dans le DOM</div><div class="v" id="domAfter">—</div></div>
     </div>
     <div class="stage"><div class="scroller" id="hostAfter"></div></div>
@@ -128,11 +130,17 @@
 // Les deux versions cohabitent dans la meme page : un compteur unique
 // melangerait leurs appels. On attribue donc chaque frame a l'application
 // dont le digest tourne au moment de l'appel (cf. `measure`).
+// On ne compte que les frames demandees PAR LA DIRECTIVE : la pile d'appel
+// doit mentionner son bundle. Sans ce filtre, on mesurerait aussi celles du
+// navigateur et des outils d'automatisation, qui noient completement le signal.
 window.__counts = { before: 0, after: 0 };
 window.__attribution = null;
 const rawRAF = window.requestAnimationFrame;
 window.requestAnimationFrame = function (cb) {
-  if (window.__attribution) window.__counts[window.__attribution]++;
+  if (window.__attribution) {
+    const stack = (new Error()).stack || '';
+    if (stack.indexOf('vs-repeat') !== -1) window.__counts[window.__attribution]++;
+  }
   return rawRAF.call(window, cb);
 };
 </script>
@@ -156,10 +164,11 @@ function rows(n) {
   return out;
 }
 
+// La directive va sur l'element qui DEFILE (celui qui porte overflow:auto),
+// pas sur un enfant : sans option scrollParent, vs-repeat ecoute son propre
+// element pour detecter le scroll.
 const TEMPLATE =
-  '<div vs-repeat="{size: 28}" style="height:100%">' +
-    '<div ng-repeat="item in items" class="row">Ligne {{ item.value }}</div>' +
-  '</div>';
+  '<div ng-repeat="item in items" class="row">Ligne {{ item.value }}</div>';
 
 const apps = {};
 
@@ -167,11 +176,15 @@ function boot(hostId, key) {
   const injector = angular.injector(['ng', 'vs-repeat']);
   injector.invoke(function ($compile, $rootScope) {
     const scope = $rootScope.$new();
-    const el = $compile(TEMPLATE)(scope);
-    document.getElementById(hostId).appendChild(el[0]);
+    // On compile le .scroller lui-meme : c'est lui qui defile, et la directive
+    // doit etre posee dessus pour recevoir l'evenement scroll.
+    const host = document.getElementById(hostId);
+    host.setAttribute('vs-repeat', '{size: 28}');
+    host.innerHTML = TEMPLATE;
+    $compile(host)(scope);
     scope.items = rows(500);
     scope.$digest();
-    apps[key] = { scope, rootScope: $rootScope, el: el[0] };
+    apps[key] = { scope, rootScope: $rootScope, el: host };
   });
 }
 
@@ -203,15 +216,14 @@ document.getElementById('run').addEventListener('click', async function () {
     const app = apps[key];
     window.__attribution = key;
     window.__counts[key] = 0;
-    const t0 = performance.now();
     // Des digests reguliers, comme dans une application vivante — mais rien
     // ne change pour la directive.
-    const iv = setInterval(() => app.rootScope.$digest(), 50);
+    let digests = 0;
+    const iv = setInterval(() => { digests++; app.rootScope.$digest(); }, 50);
     await new Promise((r) => setTimeout(r, 5000));
     clearInterval(iv);
     window.__attribution = null;
-    const elapsed = (performance.now() - t0) / 1000;
-    return +(window.__counts[key] / elapsed).toFixed(1);
+    return +(window.__counts[key] / digests).toFixed(2);
   };
 
   const before = await measure('before');
@@ -226,7 +238,7 @@ document.getElementById('run').addEventListener('click', async function () {
   const drop = before > 0 ? Math.round((1 - after / before) * 100) : 0;
 
   document.getElementById('verdict').innerHTML =
-    '<strong>' + before + '</strong> frames/s demandées avant, ' +
+    '<strong>' + before + '</strong> frame(s) demandée(s) par digest avant, ' +
     '<strong>' + after + '</strong> après — soit <strong>' + drop + ' %</strong> de moins, ' +
     'sur une page où rien ne bouge.<br>' +
     'Lignes rendues dans le DOM : <strong>' + countRows('before') + '</strong> contre ' +
