@@ -433,28 +433,6 @@
              * browser would break the cycle with "ResizeObserver loop completed
              * with undelivered notifications".
              *
-             * Conversely, a container whose height is imposed from the outside
-             * (an explicit height, or stretched by a flex/grid parent) is
-             * already at its final size: growing its content only fills up its
-             * scrollHeight. Measured on a real consumer (height: 846px,
-             * flex: 1 1 auto inside a 900px grid): growing the content from 50
-             * to 3000px fires no notification at all, while an actual change of
-             * available space does fire one.
-             *
-             * The computed size tells the two apart: `auto` means "I follow my
-             * content", anything else means "my size is imposed on me".
-             */
-            /**
-             * ResizeObserver is only usable when the container's visible size
-             * does NOT depend on its own content.
-             *
-             * Counter-example: a container using `max-height` with no height of
-             * its own grows along with its content until it reaches that
-             * maximum. Since reinitialize() resizes the spacers — that is, the
-             * content — the observer would keep re-notifying itself, and the
-             * browser would break the cycle with "ResizeObserver loop completed
-             * with undelivered notifications".
-             *
              * A container whose height is imposed from the outside has no such
              * problem: it is already at its final size, and growing the content
              * only fills up its scrollHeight.
@@ -475,15 +453,20 @@
                 return null;
               }
 
-              // A container capped by max-height is the dangerous case: below
-              // the cap its size follows its content, so resizing the spacers
-              // resizes the container, which re-notifies the observer.
+              // A capped container is the dangerous case: below the cap its
+              // size follows its content, so resizing the spacers resizes the
+              // container, which re-notifies the observer.
               //
-              // Note the computed height cannot be trusted to tell this apart:
-              // once the content exceeds the cap, it reads as a fixed pixel
+              // The cap must be read on the SAME axis the directive scrolls,
+              // otherwise a horizontal container capped by max-width slips
+              // through and takes the observer branch it should not.
+              //
+              // Note the computed size cannot be trusted to tell this apart:
+              // once the content exceeds the cap it reads as a fixed pixel
               // value (e.g. "200px") and looks externally driven. Only the
-              // presence of max-height reveals the dependency.
-              if (computed.maxHeight !== 'none') {
+              // presence of the cap reveals the dependency.
+              const maxProp = options.horizontal ? 'maxWidth' : 'maxHeight';
+              if (computed[maxProp] !== 'none') {
                 return false;
               }
               return value !== 'auto';
