@@ -1,0 +1,54 @@
+{
+  "label": "qa-baseline",
+  "url": "https://frontoffice-legacy.core.qa.shippeo.com/legacy#!/app/tours/orders/filter/allTours",
+  "capturedAt": "2026-09-01T10:29:06.668Z",
+  "container": {
+    "found": true,
+    "scrollHeight": 2738,
+    "clientHeight": 831,
+    "scrollable": true,
+    "totalRowsAtRest": 14,
+    "candidatesInPage": 15
+  },
+  "vsRepeatModule": "ok",
+  "measures": [
+    {
+      "position": 0,
+      "scrollTop": 0,
+      "renderedRows": 14,
+      "beforeHeight": 0,
+      "afterHeight": 1100
+    },
+    {
+      "position": 0.25,
+      "scrollTop": 477,
+      "renderedRows": 18,
+      "beforeHeight": 0,
+      "afterHeight": 700
+    },
+    {
+      "position": 0.5,
+      "scrollTop": 952,
+      "renderedRows": 23,
+      "beforeHeight": 0,
+      "afterHeight": 200
+    },
+    {
+      "position": 0.75,
+      "scrollTop": 1436,
+      "renderedRows": 25,
+      "beforeHeight": 0,
+      "afterHeight": 0
+    },
+    {
+      "position": 1,
+      "scrollTop": 1912,
+      "renderedRows": 25,
+      "beforeHeight": 0,
+      "afterHeight": 0
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ]
+}
