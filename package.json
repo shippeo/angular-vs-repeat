@@ -43,7 +43,8 @@
   "scripts": {
     "test": "gulp travis",
     "unit": "gulp test",
-    "build": "gulp build"
+    "build": "gulp build",
+    "check": "node scripts/check-contract.mjs"
   },
   "dependencies": {}
 }
