@@ -1,5 +1,3 @@
-/* global describe, it, expect, angular, module */
-
 /**
  * Contrat d'export du paquet — la verification que le check statique
  * (scripts/check-contract.mjs) ne peut pas faire.
@@ -54,7 +52,7 @@
       // contrat rompu tout aussi surement.
       const invokeQueue = angular.module(EXPECTED_MODULE_NAME)._invokeQueue;
       const registered = invokeQueue.some(
-        (entry) => entry[2] && entry[2][0] === 'vsRepeat'
+        (entry) => entry[2] && entry[2][0] === 'vsRepeat',
       );
       expect(registered, 'directive vsRepeat absente du module').to.equal(true);
     });

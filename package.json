@@ -21,7 +21,7 @@
     "@web/test-runner": "^1.0.0",
     "@web/test-runner-playwright": "^1.0.0",
     "chai": "^4.5.0",
-    "eslint": "git+https://github.com/kamilkp/eslint.git#bc9ae3fb6f4ea8a001b8b656fcd2a27b742583ef",
+    "eslint": "^9.39.5",
     "mocha": "^10.8.2",
     "terser": "^5.44.0"
   },
@@ -31,6 +31,7 @@
     "build:min": "terser dist/angular-vs-repeat.js -c -m -o dist/angular-vs-repeat.min.js",
     "build": "npm run clean && npm run build:js && npm run build:min",
     "check": "node scripts/check-contract.mjs",
-    "test": "npm run build && web-test-runner"
+    "test": "npm run build && web-test-runner",
+    "lint": "eslint src test"
   }
 }
