@@ -2,7 +2,7 @@
   "name": "angular-vs-repeat",
   "version": "2.0.13",
   "description": "Virtual Scroll for AngularJS ngRepeat directive",
-  "homepage": "http://kamilkp.github.io/angular-vs-repeat",
+  "homepage": "https://github.com/shippeo/angular-vs-repeat",
   "license": "MIT",
   "author": {
     "name": "Kamil Pekala",
@@ -10,9 +10,28 @@
     "url": "http://github.com/kamilkp"
   },
   "main": "dist/angular-vs-repeat.min.js",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kamilkp/angular-vs-repeat.git"
+    "url": "https://github.com/shippeo/angular-vs-repeat.git"
+  },
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:js": "babel src/angular-vs-repeat.js -o dist/angular-vs-repeat.js",
+    "build:min": "terser dist/angular-vs-repeat.js -c -m -o dist/angular-vs-repeat.min.js",
+    "build": "npm run clean && npm run build:js && npm run build:min",
+    "check": "node scripts/check-contract.mjs",
+    "test": "npm run build && web-test-runner",
+    "lint": "eslint src test"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.0",
@@ -24,16 +43,7 @@
     "angular-mocks": "^1.8.3",
     "chai": "^4.5.0",
     "eslint": "^9.39.5",
-    "mocha": "^10.8.2",
+    "mocha": "^12.0.0",
     "terser": "^5.44.0"
-  },
-  "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build:js": "babel src/angular-vs-repeat.js -o dist/angular-vs-repeat.js",
-    "build:min": "terser dist/angular-vs-repeat.js -c -m -o dist/angular-vs-repeat.min.js",
-    "build": "npm run clean && npm run build:js && npm run build:min",
-    "check": "node scripts/check-contract.mjs",
-    "test": "npm run build && web-test-runner",
-    "lint": "eslint src test"
   }
 }

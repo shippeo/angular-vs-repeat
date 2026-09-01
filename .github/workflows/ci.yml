@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # GARDE-FOU CENTRAL — ne pas retirer.
+      #
+      # Le consommateur (client) resout ce paquet depuis git et Yarn ne build
+      # RIEN a l'install : ni prepare, ni prepack. C'est le dist/ committe qui
+      # part en production. Cette etape echoue donc si quelqu'un modifie src/
+      # sans recommitter le dist/ reconstruit — le seul moyen de garantir que
+      # les deux restent coherents.
+      #
+      # Si elle rougit en CI alors qu'elle est verte en local, chercher du cote
+      # des fins de ligne : le runner est sous Linux, les postes de dev sous
+      # Windows. C'est la raison d'etre du .gitattributes a la racine.
+      - name: Verify dist/ is in sync with src/
+        run: git diff --exit-code dist/
+
+      - name: Check export contract
+        run: npm run check
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        run: npm test

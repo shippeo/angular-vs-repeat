@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # Les devDependencies sont la seule surface de risque du paquet : il n'a
+  # aucune `dependencies` runtime, et ce qui atteint la production est le
+  # dist/ committe. C'est donc la chaine de build qu'on surveille.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
