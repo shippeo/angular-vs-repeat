@@ -137,11 +137,17 @@
 
           $scope.showFlag = true;
           $scope.$digest();
+          // Deux frames, pas une : le recalcul declenche par le passage en
+          // visible arrive APRES le prochain requestAnimationFrame (cf.
+          // reinitOnClientHeightChange dans src). Mesure sur AngularJS 1.8.3 :
+          // 16 ms -> 1 element, 32 ms -> 10 (etat final identique a 1.2.16).
+          // A une seule frame le test courait l'ordonnanceur et le perdait
+          // dans ~87 % des cas (30 echecs sur 33 executions).
           setTimeout(function(){
             elems = getElements($element);
             expect(elems.length).to.be.greaterThan(3);
             done();
-          }, animationFrame);
+          }, animationFrame * 2);
         }, animationFrame);
       });
     });

@@ -25,7 +25,7 @@
       // directement, comme le faisait karma-chai.
       window.expect = window.chai.expect;
     </script>
-    <script src="../lib/angular.js"></script>
+    <script src="../node_modules/angular/angular.js"></script>
     <script src="../dist/angular-vs-repeat.min.js"></script>
 
     <script type="module">
@@ -63,7 +63,7 @@
       // L'ordre relatif angular -> angular-mocks -> spec.js reste celui de
       // karma.conf.js.
       runTests(async () => {
-        await loadScript('../lib/angular-mocks.js');
+        await loadScript('../node_modules/angular-mocks/angular-mocks.js');
         await loadScript('./spec.js');
         await loadScript('./contract.spec.js');
       });
