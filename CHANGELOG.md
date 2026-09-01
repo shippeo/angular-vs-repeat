@@ -1,3 +1,47 @@
+Version 3.0.0 (2026/09/01)
+=================
+
+Modernisation de la chaine d'outillage. **Aucun changement fonctionnel de la
+directive** : le comportement a ete valide comme identique a celui de la
+version en production (comptage des lignes rendues a cinq positions de scroll
+sur la vue treeTable de `client`, resultats rigoureusement egaux).
+
+Le major marque la rupture d'outillage et de cibles de compilation, pas une
+evolution d'API.
+
+  * **Cibles de compilation alignees sur le consommateur** : `> 0.5%, last 2
+    versions, Firefox ESR, not dead, not IE 11` au lieu des cibles de 2018
+    (`safari >= 7, ie >= 10`). Le bundle conserve desormais arrow functions,
+    const/let et template literals, et n'embarque plus aucun helper ES5.
+    `dist/angular-vs-repeat.min.js` : 10,2 K -> 8,5 K.
+  * **Build** : Gulp 3 (casse sur Node >= 12) remplace par `@babel/cli` +
+    `terser` via des scripts npm. Babel passe de `7.0.0-beta.40` aux versions
+    stables 7.28.
+  * **Tests** : Karma (non maintenu) remplace par `@web/test-runner` +
+    Playwright. AngularJS de test aligne sur celui de la production (1.2.16 ->
+    1.8.3) et `lib/` (800 K de binaires versionnes) supprime.
+  * **Lint** : ESLint 9 en flat config. Suppression du fork GitHub personnel
+    epingle sur un SHA (`kamilkp/eslint#bc9ae3fb`) qui etait resolu a chaque
+    install — contenu non auditable, absent de tout rapport Dependabot.
+  * **CI** : Travis (mort) remplace par GitHub Actions, avec un controle de
+    coherence entre `src/` et le `dist/` committe.
+  * **Metadonnees** : `repository` et `homepage` repointes vers shippeo,
+    `files` restreint a ce qui est reellement consomme, `bower.json` supprime.
+  * Vulnerabilites `npm audit` : 128 (dont 39 critical) -> 1 high residuelle
+    (`angular` 1.x, en fin de vie depuis 2022, sans correctif possible — c'est
+    la version deja utilisee en production).
+
+Version 2.0.13 (2019/07)
+=================
+
+  * suppression de `angular.element.prototype.closest`, qui etendait le
+    prototype d'AngularJS globalement
+
+Version 2.0.10 (2018)
+=================
+
+  * option `perserveLatchOnRefresh`
+
 Version 2.0.9 (2018/04/02)
 =================
 

@@ -1,6 +1,6 @@
 /**
  * Copyright Kamil Pękala http://github.com/kamilkp
- * Angular Virtual Scroll Repeat v2.0.13 2018/04/02
+ * Angular Virtual Scroll Repeat v3.0.0 2026/09/01
  */
 
 /* global console, setTimeout, module */
@@ -96,7 +96,7 @@
       el = el.parentNode;
     }
 
-    if (el ?.[matchingFunction](selector)) {
+    if (el?.[matchingFunction](selector)) {
       return angular.element(el);
     }
 
